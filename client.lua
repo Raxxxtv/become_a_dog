@@ -5,6 +5,7 @@ local playerPed
 local sit = false
 local lay = false
 local bark = false
+local dogThreadRunning = false
 
 local function loadAnim(dict)
     RequestAnimDict(dict)
@@ -25,6 +26,8 @@ local function loadModel(model)
 end
 
 local function startDogThread()
+    if dogThreadRunning then return end
+    dogThreadRunning = true
     CreateThread(function()
         while isDog do
             local ped = PlayerPedId()
