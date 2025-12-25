@@ -1,7 +1,7 @@
 ESX = exports["es_extended"]:getSharedObject()
 
 local isDog = false
-local playerped = nil
+local playerPed
 local sit = false
 local lay = false
 local bark = false
@@ -13,7 +13,7 @@ local function loadAnim(dict)
     end
 end
 
-local function loadmodel(model)
+local function loadModel(model)
     if IsModelInCdimage(model) and IsModelValid(model) then
         RequestModel(model)
         while not HasModelLoaded(model) do
@@ -24,50 +24,53 @@ local function loadmodel(model)
     end
 end
 
-local function toggleDog()
-    if isDog then
-        local model = "mp_m_freemode_01"
-        loadmodel(model)
-        TriggerEvent("skinchanger:loadSkin", playerped)
-        SetPedCanSwitchWeapon(PlayerPedId(), true)
-        LocalPlayer.state.canUseWeapons = true
-        LocalPlayer.state.invBusy = false
-        exports.ox_inventory:weaponWheel(false)
-    else
-        ESX.TriggerServerCallback("esx_skin:getPlayerSkin", function(skin)
-            playerped = skin
-        end)
-        local model = Config.DogModel
-        loadmodel(model)
-        SetPedCanSwitchWeapon(PlayerPedId(), false)
-        LocalPlayer.state.canUseWeapons = false
-        LocalPlayer.state.invBusy = true
-        exports.ox_inventory:weaponWheel(true)
-    end
-    isDog = not isDog
-end
-
-CreateThread(function()
-    local ped = PlayerPedId()
-    while true do
-        Wait(0)
-        ped = PlayerPedId()
-        if isDog then
+local function startDogThread()
+    CreateThread(function()
+        while isDog do
+            local ped = PlayerPedId()
             if GetVehiclePedIsTryingToEnter(ped) ~= 0 then
                 ClearPedTasks(ped)
             end
+            Wait(100)
         end
-    end
-end)
+    end)
+end
 
-RegisterCommand('hund', function()
-    toggleDog()
-end)
+local function toggleDog()
+    local ped = PlayerPedId()
 
-RegisterCommand('sitz', function()
-    if not isDog or lay or bark then
+    if isDog then
+        loadModel('mp_m_freemode_01')
+        TriggerEvent('skinchanger:loadSkin', playerPed)
+
+        SetPedCanSwitchWeapon(ped, true)
+        LocalPlayer.state.canUseWeapons = true
+        LocalPlayer.state.invBusy = false
+        exports.ox_inventory:weaponWheel(false)
+
+        isDog = false
         return
     end
+
+    ESX.TriggerServerCallback('esx_skin:getPlayerSkin', function(skin)
+        playerPed = skin
+
+        loadModel(Config.DogModel)
+
+        SetPedCanSwitchWeapon(ped, false)
+        LocalPlayer.state.canUseWeapons = false
+        LocalPlayer.state.invBusy = true
+        exports.ox_inventory:weaponWheel(true)
+
+        isDog = true
+        startDogThread()
+    end)
+end
+
+RegisterCommand('hund', toggleDog)
+
+RegisterCommand('sitz', function()
+    if not isDog or lay or bark then return end
 
     if not sit then
         loadAnim('creatures@pug@amb@world_dog_sitting@base')
@@ -75,13 +78,12 @@ RegisterCommand('sitz', function()
     else
         ClearPedTasks(PlayerPedId())
     end
+
     sit = not sit
 end)
 
 RegisterCommand('platz', function()
-    if not isDog or sit or bark then
-        return
-    end
+    if not isDog or sit or bark then return end
 
     if not lay then
         loadAnim('creatures@pug@move')
@@ -89,13 +91,12 @@ RegisterCommand('platz', function()
     else
         ClearPedTasks(PlayerPedId())
     end
+
     lay = not lay
 end)
 
 RegisterCommand('bellen', function()
-    if not isDog or lay or sit then
-        return
-    end
+    if not isDog or lay or sit then return end
 
     if not bark then
         loadAnim('creatures@pug@amb@world_dog_barking@idle_a')
@@ -103,6 +104,7 @@ RegisterCommand('bellen', function()
     else
         ClearPedTasks(PlayerPedId())
     end
+
     bark = not bark
 end)
 
